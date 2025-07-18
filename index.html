@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📸 종이 텍스트 읽기 앱</title>
+    <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .step {
+            margin-bottom: 30px;
+            padding: 20px;
+            border-radius: 15px;
+            background: #f8f9fa;
+            border-left: 5px solid #4ecdc4;
+        }
+
+        .step h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .camera-container {
+            position: relative;
+            margin: 20px 0;
+        }
+
+        #video {
+            width: 100%;
+            max-width: 500px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #51cf66, #40c057);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(81, 207, 102, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .preview-container {
+            margin: 20px 0;
+        }
+
+        #preview {
+            max-width: 100%;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .text-area {
+            width: 100%;
+            min-height: 200px;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            font-size: 1.1em;
+            line-height: 1.6;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .text-area:focus {
+            outline: none;
+            border-color: #4ecdc4;
+            box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.1);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4ecdc4;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📸 종이 텍스트 읽기 앱</h1>
+            <p>카메라로 종이를 찍으면 텍스트를 자동으로 읽어줘요!</p>
+        </div>
+
+        <div class="main-content">
+            <div class="instructions">
+                <h4>📋 사용 방법:</h4>
+                <ul>
+                    <li>1️⃣ 카메라 버튼을 눌러 카메라를 켜세요</li>
+                    <li>2️⃣ 종이를 카메라에 비추고 사진을 찍으세요</li>
+                    <li>3️⃣ 텍스트가 자동으로 읽혀질 때까지 기다리세요</li>
+                    <li>4️⃣ 읽힌 텍스트를 확인하고 수정하세요</li>
+                    <li>5️⃣ 저장 버튼을 눌러 텍스트를 저장하세요</li>
+                </ul>
+            </div>
+
+            <!-- 1단계: 카메라 켜기 -->
+            <div class="step">
+                <h3>📷 1단계: 카메라 켜기</h3>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="startCamera()">카메라 켜기</button>
+                    <button class="btn btn-secondary" onclick="stopCamera()">카메라 끄기</button>
+                </div>
+                <div class="camera-container">
+                    <video id="video" autoplay playsinline></video>
+                    <canvas id="canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- 2단계: 사진 촬영 -->
+            <div class="step">
+                <h3>📸 2단계: 사진 촬영</h3>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="takePhoto()" id="takePhotoBtn" disabled>사진 찍기</button>
+                </div>
+                <div class="preview-container hidden" id="previewContainer">
+                    <h4>촬영된 사진:</h4>
+                    <img id="preview" alt="촬영된 사진">
+                </div>
+            </div>
+
+            <!-- 3단계: 텍스트 읽기 -->
+            <div class="step">
+                <h3>🔍 3단계: 텍스트 읽기</h3>
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="readText()" id="readTextBtn" disabled>텍스트 읽기</button>
+                </div>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>텍스트를 읽고 있어요... 잠시만 기다려주세요! 🕐</p>
+                </div>
+            </div>
+
+            <!-- 4단계: 텍스트 확인/수정 -->
+            <div class="step">
+                <h3>✏️ 4단계: 텍스트 확인/수정</h3>
+                <textarea 
+                    class="text-area" 
+                    id="textOutput" 
+                    placeholder="여기에 읽힌 텍스트가 나타날 거예요! 📝"
+                    readonly
+                ></textarea>
+                            <div class="button-group">
+                <button class="btn btn-primary" onclick="editText()" id="editTextBtn" disabled>텍스트 편집</button>
+                <button class="btn btn-success" onclick="saveText()" id="saveTextBtn" disabled>텍스트 저장</button>
+                <button class="btn btn-secondary" onclick="saveToVercel()" id="vercelBtn" disabled>Vercel에 저장</button>
+                <!-- <button class="btn btn-secondary" onclick="saveToGoogleDrive()" id="googleDriveBtn" disabled style="display:none">구글 드라이브에 저장</button> -->
+            </div>
+            </div>
+
+            <div id="status"></div>
+        </div>
+    </div>
+
+    <script>
+        let stream = null;
+        let isEditing = false;
+
+        // 상태 메시지 표시 함수
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        // 카메라 시작
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment', // 후면 카메라 우선
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    } 
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                document.getElementById('takePhotoBtn').disabled = false;
+                showStatus('카메라가 켜졌어요! 이제 사진을 찍을 수 있어요! 📸', 'success');
+            } catch (error) {
+                console.error('카메라 접근 오류:', error);
+                showStatus('카메라에 접근할 수 없어요. 카메라 권한을 확인해주세요! 😢', 'error');
+            }
+        }
+
+        // 카메라 중지
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                
+                const video = document.getElementById('video');
+                video.srcObject = null;
+                
+                document.getElementById('takePhotoBtn').disabled = true;
+                document.getElementById('readTextBtn').disabled = true;
+                document.getElementById('previewContainer').classList.add('hidden');
+                
+                showStatus('카메라가 꺼졌어요! 👋', 'info');
+            }
+        }
+
+        // 사진 촬영
+        function takePhoto() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const preview = document.getElementById('preview');
+            
+            // 캔버스 크기를 비디오 크기에 맞춤
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // 비디오 프레임을 캔버스에 그리기
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            
+            // 캔버스 내용을 이미지로 변환
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            preview.src = imageData;
+            
+            // 미리보기 표시
+            document.getElementById('previewContainer').classList.remove('hidden');
+            document.getElementById('readTextBtn').disabled = false;
+            
+            showStatus('사진이 찍혔어요! 이제 텍스트를 읽어볼까요? 📖', 'success');
+        }
+
+        // 텍스트 읽기 (OCR)
+        async function readText() {
+            const loading = document.getElementById('loading');
+            const readTextBtn = document.getElementById('readTextBtn');
+            const textOutput = document.getElementById('textOutput');
+            
+            loading.style.display = 'block';
+            readTextBtn.disabled = true;
+            
+            try {
+                const canvas = document.getElementById('canvas');
+                
+                showStatus('텍스트를 읽고 있어요... 조금만 기다려주세요! 🔍', 'info');
+                
+                // Tesseract.js로 OCR 수행
+                const result = await Tesseract.recognize(
+                    canvas,
+                    'kor+eng', // 한국어 + 영어
+                    {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                showStatus(`텍스트 인식 중... ${Math.round(m.progress * 100)}% 완료! 📊`, 'info');
+                            }
+                        }
+                    }
+                );
+                
+                // 결과 텍스트 표시
+                textOutput.value = result.data.text;
+                textOutput.readOnly = false;
+                
+                document.getElementById('editTextBtn').disabled = false;
+                document.getElementById('saveTextBtn').disabled = false;
+                document.getElementById('vercelBtn').disabled = false;
+                // document.getElementById('googleDriveBtn').disabled = false;
+                
+                loading.style.display = 'none';
+                showStatus('텍스트 읽기가 완료되었어요! 이제 확인하고 수정할 수 있어요! ✅', 'success');
+                
+            } catch (error) {
+                console.error('OCR 오류:', error);
+                loading.style.display = 'none';
+                readTextBtn.disabled = false;
+                showStatus('텍스트를 읽는 중에 오류가 발생했어요. 다시 시도해보세요! 😢', 'error');
+            }
+        }
+
+        // 텍스트 편집 모드
+        function editText() {
+            const textOutput = document.getElementById('textOutput');
+            const editTextBtn = document.getElementById('editTextBtn');
+            
+            if (!isEditing) {
+                textOutput.readOnly = false;
+                textOutput.focus();
+                editTextBtn.textContent = '편집 완료';
+                editTextBtn.classList.remove('btn-primary');
+                editTextBtn.classList.add('btn-success');
+                isEditing = true;
+                showStatus('이제 텍스트를 편집할 수 있어요! ✏️', 'info');
+            } else {
+                textOutput.readOnly = true;
+                editTextBtn.textContent = '텍스트 편집';
+                editTextBtn.classList.remove('btn-success');
+                editTextBtn.classList.add('btn-primary');
+                isEditing = false;
+                showStatus('텍스트 편집이 완료되었어요! 💾', 'success');
+            }
+        }
+
+        // 텍스트 저장
+        function saveText() {
+            const textOutput = document.getElementById('textOutput');
+            const text = textOutput.value.trim();
+            
+            if (!text) {
+                showStatus('저장할 텍스트가 없어요! 먼저 텍스트를 읽어주세요! 📝', 'error');
+                return;
+            }
+            
+            // 텍스트 파일로 다운로드
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `읽은텍스트_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showStatus('텍스트가 성공적으로 저장되었어요! 📁', 'success');
+        }
+
+        // Vercel에 저장
+        async function saveToVercel() {
+            const textOutput = document.getElementById('textOutput');
+            const text = textOutput.value.trim();
+            if (!text) {
+                showStatus('저장할 텍스트가 없어요!', 'error');
+                return;
+            }
+            const fileName = `OCR_Text_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+            try {
+                showStatus('Vercel 서버에 저장 중...', 'info');
+                const response = await fetch('https://ocr-web2.vercel.app/api/saveText', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, fileName })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showStatus('Vercel 서버에 성공적으로 저장되었습니다!', 'success');
+                } else {
+                    showStatus('Vercel 저장 중 오류: ' + result.message, 'error');
+                }
+            } catch (error) {
+                showStatus('Vercel 저장 중 오류: ' + error, 'error');
+            }
+        }
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', () => {
+            showStatus('종이 텍스트 읽기 앱에 오신 것을 환영해요! 🎉', 'info');
+        });
+
+        // 페이지 떠날 때 카메라 정리
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html> 
